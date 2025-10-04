@@ -1,417 +1,287 @@
-// game.js
-
-
-/* ---------- Celebration effect (used by game/battle on wins, purchases) ---------- */
-function celebrate() {
-  try {
-    // spawn a few orbs toward the coin counter
-    spawnOrb(coinCountEl, 6);
-
-    // simple confetti animation (no external CSS required)
-    const colors = ['#e74c3c','#f1c40f','#2ecc71','#3498db','#9b59b6'];
-    for (let i = 0; i < 30; i++) {
-      const el = document.createElement('div');
-      el.className = 'confetti';
-      el.style.position = 'fixed';
-      el.style.zIndex = 9999;
-      el.style.left = (Math.random() * 100) + '%';
-      el.style.top = '-10px';
-      el.style.width = '10px';
-      el.style.height = '10px';
-      el.style.background = colors[i % colors.length];
-      el.style.opacity = '0.95';
-      el.style.borderRadius = '2px';
-      el.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
-      el.style.pointerEvents = 'none';
-      document.body.appendChild(el);
-
-      // animate downwards
-      setTimeout(() => {
-        el.style.transition = 'all 1800ms linear';
-        el.style.top = (60 + Math.random() * 30) + '%';
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(120px) rotate(' + (Math.random() * 720) + 'deg)';
-      }, 20 + Math.random() * 240);
-
-      setTimeout(() => el.remove(), 2000 + Math.random() * 500);
-    }
-
-    // Try to play a win sound, if available
-    try { if (typeof playSound === 'function') playSound('sounds/win.wav'); } catch (e) {}
-  } catch (e) { console.warn('celebrate() error', e); }
-}
-
-console.log("game.js loaded");
-
-// Game Functions
-function claimDaily() {
-  const today = new Date().toDateString();
-  if (gameState.lastDaily === today) {
-    showNotification("Already claimed today!");
-    return;
-  }
-  
-  gameState.coins += 50;
-  gameState.dust += 5;
-  gameState.lastDaily = today;
-  
-  spawnOrb(coinCountEl, 2);
-  showNotification("Daily bonus claimed! +50 coins, +5 dust");
-  updateUI();
-  saveGame();
-}
-
-function buyItem(itemId) {
-  const item = shopItems.find(i => i.id === itemId);
-  if (!item) return showNotification('Item not found');
-  const cost = item.price;
-  const currency = item.currency;
-
-  if (gameState[currency] < cost) {
-    showNotification(`Not enough ${currency}!`);
-    return;
-  }
-
-  const confirmation = confirm(`Are you sure you want to buy ${item.name} for ${cost} ${currency}?`);
-
-  if (confirmation) {
-    gameState[currency] -= cost;
-
-    if (item.name === 'Mystery Box') {
-      buyMysteryBox();
-    } else if (item.type === 'familiar') {
-      const newFamiliar = createFamiliarFromItem(item, Date.now() + Math.floor(Math.random() * 1000));
-      gameState.familiars.push(newFamiliar);
-      renderFamiliars();
-      showNotification(`You bought a new familiar: ${item.name}!`);
-      celebrate();
-    } else {
-      // Add to inventory
-      const existingItem = gameState.inventory.find(i => i.name === item.name);
-      if (existingItem) {
-        existingItem.quantity = (existingItem.quantity || 0) + 1;
-      } else {
-        gameState.inventory.push({
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          name: item.name,
-          image: item.image,
-          quantity: 1,
-          type: item.type || 'consumable',
-          description: item.description || ''
-        });
-      }
-      renderInventory();
-      showNotification(`Purchased ${item.name}!`);
-    }
-
-    spawnOrb(currency === 'coins' ? coinCountEl : dustCountEl);
-    updateUI();
-    saveGame();
-  }
-}
-
-function buyMysteryBox() {
-  const pool = shopItems.filter(i => i.id && i.id !== 205);
-  if (!pool.length) {
-    pool.push(...hatchableFamiliars);
-  }
-
-  const randomIndex = Math.floor(Math.random() * pool.length);
-  const randomItem = pool[randomIndex];
-  if (!randomItem) {
-    showNotification('The box was empty... try again later.');
-    return;
-  }
-
-  if (randomItem.type === 'familiar' || (randomItem.hp && !randomItem.type)) {
-    const newFamiliar = createFamiliarFromItem(randomItem, Date.now() + Math.floor(Math.random() * 1000));
-    gameState.familiars.push(newFamiliar);
-    renderFamiliars();
-    saveGame();
+function triggerRandomEvent() {
+  if (Math.random() < 0.1 && !currentEvent) {
+    const event = events[Math.floor(Math.random() * events.length)];
+    currentEvent = event;
+    showEvent(event);
     setTimeout(() => {
-      showNotification(`You got a new familiar: ${newFamiliar.name} from the Mystery Box!`);
-      celebrate();
-    }, 80);
-  } else {
-    const existingItem = gameState.inventory.find(i => i.name === randomItem.name);
-    if (existingItem) {
-      existingItem.quantity = (existingItem.quantity || 0) + 1;
-    } else {
-      gameState.inventory.push({
-        id: randomItem.id || Date.now() + Math.floor(Math.random() * 1000),
-        name: randomItem.name || 'Mysterious Item',
-        image: randomItem.image,
-        quantity: 1,
-        type: randomItem.type || 'consumable',
-        description: randomItem.description || ''
-      });
-    }
-    renderInventory();
-    saveGame();
-    setTimeout(() => {
-      showNotification(`You got a ${randomItem.name} from the Mystery Box!`);
-      celebrate();
-    }, 80);
+      currentEvent = null;
+      hideEvent();
+    }, event.duration);
   }
 }
 
-function hatchEgg(itemId) {
-  const egg = gameState.inventory.find(i => i.id === itemId);
-  if (!egg || egg.type !== 'egg') return;
+function showEvent(event) {
+  const banner = document.getElementById('eventBanner');
+  document.getElementById('eventTitle').textContent = event.name + '!';
+  document.getElementById('eventDesc').textContent = event.desc;
+  banner.classList.remove('hidden');
+}
 
-  showHatchingAnimation(() => {
-    const newFamiliarInfo = hatchableFamiliars[Math.floor(Math.random() * hatchableFamiliars.length)];
-    const newFamiliar = createFamiliarFromItem(newFamiliarInfo, Date.now() + Math.floor(Math.random() * 1000));
-    gameState.familiars.push(newFamiliar);
-    
-    egg.quantity--;
-    if (egg.quantity <= 0) {
-      gameState.inventory = gameState.inventory.filter(i => i.id !== itemId);
+function hideEvent() {
+  document.getElementById('eventBanner').classList.add('hidden');
+}
+
+function checkAchievements() {
+  let newUnlocks = 0;
+  achievements.forEach(ach => {
+    if (!game.achievements.includes(ach.id) && ach.check()) {
+      game.achievements.push(ach.id);
+      notify('Achievement Unlocked: ' + ach.name + '!');
+      newUnlocks++;
     }
+  });
+  if (newUnlocks > 0) save();
+}
 
-    renderFamiliars();
-    renderInventory();
-    showNotification(`You hatched a ${newFamiliar.name}!`);
-    celebrate();
-    saveGame();
+function generateLeaderboard() {
+  const scores = [
+    {name: 'DragonMaster', level: 15, wins: 45},
+    {name: 'ShadowKeeper', level: 12, wins: 38},
+    {name: 'MysticWarrior', level: 11, wins: 35},
+    {name: game.player.name, level: game.level, wins: game.wins, you: true},
+    {name: 'IronFist', level: 9, wins: 28},
+    {name: 'SwiftBlade', level: 8, wins: 24}
+  ];
+  
+  scores.sort((a,b) => b.wins - a.wins);
+  
+  const list = document.getElementById('leaderboardList');
+  list.innerHTML = '';
+  
+  scores.forEach((s, i) => {
+    const entry = document.createElement('div');
+    entry.className = 'leaderboard-entry' + (s.you ? ' you' : '');
+    entry.innerHTML = `
+      <span><strong>#${i+1}</strong> ${s.name}</span>
+      <span>Level ${s.level} • ${s.wins} wins</span>
+    `;
+    list.appendChild(entry);
   });
 }
 
-// Create familiar with safe defaults
-function createFamiliarFromItem(item, newId) {
-  return {
-    id: newId,
-    name: item.name || 'New Familiar',
-    species: item.species || (item.name || 'familiar').toLowerCase().replace(/\s+/g, ''),
-    color: item.color || 'default',
-    marking: item.marking || 'none',
-    level: item.level || 1,
-    xp: item.xp || 0,
-  image: item.image || item.img || `img/${(item.name || 'familiar').toLowerCase().replace(/\s+/g,'_')}.png`,
-    hunger: item.hunger || 100,
-    thirst: item.thirst || 100,
-    happiness: item.happiness || 100,
-    hp: Number(item.hp) || 50,
-    attack: Number(item.attack) || 10,
-    defense: Number(item.defense) || 5,
-    speed: Number(item.speed) || 10
-  };
+function openRenameModal(id) {
+  renameTarget = id;
+  document.getElementById('renameModal').classList.remove('hidden');
+  document.getElementById('renameInput').value = '';
+  document.getElementById('renameInput').focus();
 }
 
-function levelUp() {
-  if (gameState.xp >= 100) {
-    gameState.level++;
-    gameState.xp -= 100;
-    gameState.coins += gameState.level * 10;
-    
-    spawnOrb(playerLevelEl, 3);
-    showNotification(`Level up! You're now level ${gameState.level}!`);
-    celebrate();
-    updateUI();
-    saveGame();
-  }
+function closeRenameModal() {
+  document.getElementById('renameModal').classList.add('hidden');
+  renameTarget = null;
 }
 
-function levelUpFamiliar(familiar) {
-  if (familiar.xp >= 100) {
-    familiar.level++;
-    familiar.xp -= 100;
-    familiar.hp += 10;
-    familiar.attack += 2;
-    familiar.defense += 2;
-    familiar.speed += 1;
-    showNotification(`${familiar.name} leveled up to level ${familiar.level}!`);
-    celebrate();
+function saveRename() {
+  const newName = document.getElementById('renameInput').value.trim();
+  if (!newName || !renameTarget) return;
+  
+  const fam = game.familiars.find(f => f.id === renameTarget);
+  if (fam) {
+    fam.name = newName;
+    notify('Renamed to ' + newName + '!');
     renderFamiliars();
-    saveGame();
+    save();
   }
+  closeRenameModal();
+}
+
+function checkEvolution(fam) {
+  if (!fam.evolves || fam.evolved) return;
+  if (fam.level >= fam.evolvesAt) {
+    evolveFamiliar(fam);
+  }
+}
+
+function evolveFamiliar(fam) {
+  const oldName = fam.name;
+  fam.name = fam.evolvesInto;
+  fam.evolved = true;
+  fam.maxHp = Math.floor(fam.maxHp * 1.5);
+  fam.currentHp = fam.maxHp;
+  fam.attack = Math.floor(fam.attack * 1.3);
+  fam.defense = Math.floor(fam.defense * 1.3);
+  fam.speed = Math.floor(fam.speed * 1.2);
+  
+  showEvolutionModal(oldName, fam);
+  checkAchievements();
+}
+
+function saveAvatarEmoji(emoji) {
+  game.player.avatar = emoji;
+  document.getElementById('avatarDisplay').innerHTML = emoji;
+  closeAvatarModal();
+  save();
+}
+
+function saveAvatarURL() {
+  const url = document.getElementById('avatarURL').value.trim();
+  if (!url) { notify('Enter URL'); return; }
+  game.player.avatar = url;
+  document.getElementById('avatarDisplay').innerHTML = `<img src="${url}" onerror="this.innerHTML='👤'">`;
+  closeAvatarModal();
+  save();
+  notify('Avatar updated!');
+}
+
+function pickClass(c) {
+  sel.class = c;
+  document.querySelectorAll('#intro .card').forEach(card => card.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  checkReady();
+}
+
+function pickFaction(f) {
+  sel.faction = f;
+  document.querySelectorAll('#intro .card').forEach(card => card.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  checkReady();
+}
+
+function pickStarter(s, el) {
+  sel.starter = s;
+  document.querySelectorAll('#starterGrid .card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('beginBtn').disabled = !(sel.class && sel.faction && sel.starter);
+}
+
+function startGame() {
+  if (!sel.class || !sel.faction || !sel.starter) return;
+  
+  game.player.class = sel.class;
+  game.player.faction = sel.faction;
+  game.coins = 100;
+  game.dust = 10;
+  game.init = true;
+  
+  const fam = {
+    id: Date.now(),
+    ...sel.starter,
+    level: 1,
+    xp: 0,
+    maxHp: sel.starter.hp,
+    currentHp: sel.starter.hp,
+    rarity: 'common',
+    personality: personalities[Math.floor(Math.random() * personalities.length)]
+  };
+  game.familiars.push(fam);
+  
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('home-content').style.display = 'block';
+  
+  save();
+  updateUI();
+  updateAvatar();
+  showSection('home');
+  notify('Welcome, ' + sel.class + '!');
+  
+  setInterval(triggerRandomEvent, 120000);
+}
+
+function healFam(id) {
+  const f = game.familiars.find(x => x.id === id);
+  if (!f || game.coins < 20) { notify('Not enough coins!'); return; }
+  game.coins -= 20;
+  f.currentHp = f.maxHp;
+  notify(f.name + ' healed!');
+  updateUI();
+  renderFamiliars();
+  save();
+}
+
+function addMaterial(name, qty) {
+  if (!game.inventory[name]) game.inventory[name] = 0;
+  game.inventory[name] += qty;
+  game.totalMaterialsCollected += qty;
+}
+
+function craft(id) {
+  const recipe = recipes.find(r => r.id === id);
+  if (!recipe) return;
+  
+  const canCraft = Object.keys(recipe.mats).every(m => (game.inventory[m] || 0) >= recipe.mats[m]);
+  if (!canCraft) { notify('Not enough materials!'); return; }
+  
+  Object.entries(recipe.mats).forEach(([m,q]) => {
+    game.inventory[m] -= q;
+  });
+  
+  if (recipe.type === 'familiar') {
+    const newFam = {
+      id: Date.now(),
+      name: 'Summoned Beast',
+      species: 'summoned',
+      hp: 80,
+      maxHp: 80,
+      currentHp: 80,
+      attack: 15,
+      defense: 10,
+      speed: 15,
+      level: 1,
+      xp: 0,
+      rarity: 'rare',
+      image: 'img/familiars/cat.png',
+      personality: personalities[Math.floor(Math.random() * personalities.length)]
+    };
+    game.familiars.push(newFam);
+    notify('Summoned a new familiar!');
+  } else {
+    game.familiars.forEach(f => {
+      if (recipe.bonus.stat === 'defense') f.defense += recipe.bonus.val;
+      if (recipe.bonus.stat === 'attack') f.attack += recipe.bonus.val;
+    });
+    notify('Crafted ' + recipe.name + '!');
+  }
+  
+  checkAchievements();
+  renderCrafting();
+  renderInventory();
+  renderFamiliars();
+  save();
+}
+
+function buyItem(item) {
+  if (game[item.currency] < item.price) { notify('Not enough ' + item.currency + '!'); return; }
+  
+  game[item.currency] -= item.price;
+  
+  if (item.effect === 'heal') {
+    game.familiars.forEach(f => f.currentHp = f.maxHp);
+    notify('All familiars healed!');
+  } else if (item.effect === 'material') {
+    addMaterial(item.mat, 1);
+    notify('Purchased ' + item.name + '!');
+  }
+  
+  updateUI();
+  renderShop();
+  renderInventory();
+  save();
 }
 
 function gainXP(amount) {
-  gameState.xp += amount;
-  if (gameState.xp >= 100) {
-    levelUp();
+  game.xp += amount;
+  if (game.xp >= 100) {
+    game.level++;
+    game.xp -= 100;
+    game.coins += game.level * 10;
+    notify('Level up! Now level ' + game.level);
+    checkAchievements();
   }
   updateUI();
+  save();
 }
 
-// Activity functions
-function startActivity(activityName) {
-  if (activityName === 'catch') activityName = 'catching';
-  if (!gameState.activities[activityName]) {
-    showNotification(`Invalid activity: ${activityName}`);
-    return;
-  }
-  const activity = gameState.activities[activityName];
-  if (activity.active) return;
-  
-  activity.active = true;
-  activity.progress = 0;
-  
-  const btn = document.getElementById(`${activityName}Btn`);
-  const progressBar = document.getElementById(`${activityName}Progress`);
-  
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = `${activityName.charAt(0).toUpperCase() + activityName.slice(1)}...`;
-  }
-  
-  const interval = setInterval(() => {
-    activity.progress += 10;
-    if (progressBar) progressBar.style.width = activity.progress + '%';
-    
-    if (activity.progress >= 100) {
-      clearInterval(interval);
-      completeActivity(activityName);
-    }
-  }, 300);
-}
-
-function startForaging() { startActivity('foraging'); }
-function startMining() { startActivity('mining'); }
-function startFishing() { startActivity('fishing'); }
-function startCatching() { startActivity('catching'); }
-function startEnchanting() { startActivity('enchanting'); }
-
-function completeActivity(activityName) {
-  const activity = gameState.activities[activityName];
-  activity.active = false;
-  activity.progress = 0;
-
-  const btn = document.getElementById(`${activityName}Btn`);
-  const progressBar = document.getElementById(`${activityName}Progress`);
-
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = `Start ${activityName.charAt(0).toUpperCase() + activityName.slice(1)}`;
-  }
-  if (progressBar) progressBar.style.width = '0%';
-
-  const rewards = {
-    foraging: { coins: 15, dust: 2, xp: 10 },
-    mining: { coins: 25, dust: 1, xp: 15 },
-    fishing: { coins: 20, dust: 3, xp: 12 },
-    catching: { coins: 10, dust: 5, xp: 20 },
-    enchanting: { coins: 10, dust: 5, xp: 20 }
-  };
-
-  const reward = rewards[activityName];
-  if (reward) gainXP(reward.xp);
-
-  if (activityName === 'catching') {
-    if (Math.random() < 0.5) {
-      const randomItem = {
-        name: `Wildling ${gameState.familiars.length + 1}`,
-  image: enemyImages.default || 'img/assets/battle.jpg',
-        hp: 40,
-        attack: 8,
-        defense: 4,
-        speed: 12
-      };
-      const randomFamiliar = createFamiliarFromItem(randomItem, Date.now() + Math.floor(Math.random() * 1000));
-      gameState.familiars.push(randomFamiliar);
-      renderFamiliars();
-      showNotification(`You caught a new familiar!`);
-      celebrate();
-    } else {
-      showNotification(`The familiar got away...`);
-    }
-  } else if (activityName === 'enchanting') {
-    if (Math.random() < 0.5) {
-      const randomItem = {
-        name: `Sprite ${gameState.familiars.length + 1}`,
-  image: familiarImages.cat || 'img/familiars/cat.png',
-        hp: 60,
-        attack: 12,
-        defense: 8,
-        speed: 25
-      };
-      const randomFamiliar = createFamiliarFromItem(randomItem, Date.now() + Math.floor(Math.random() * 1000));
-      gameState.familiars.push(randomFamiliar);
-      renderFamiliars();
-      showNotification(`You enchanted a new familiar!`);
-      celebrate();
-    } else {
-      showNotification(`The familiar resisted the enchantment...`);
-    }
-  } else {
-    if (reward) {
-      gameState.coins += reward.coins;
-      gameState.dust += reward.dust;
-      spawnOrb(coinCountEl);
-      showNotification(`${activityName.charAt(0).toUpperCase() + activityName.slice(1)} complete! +${reward.coins} coins, +${reward.dust} dust, +${reward.xp} XP`);
-    }
-  }
-
-  saveGame();
-}
-
-function interactFamiliar(familiarId, interactionType) {
-  const familiar = (gameState.familiars || []).find(f => f.id === familiarId);
-  if (!familiar) return showNotification('Familiar not found');
-
-  switch (interactionType) {
-    case 'play':
-      familiar.happiness = Math.min(100, (familiar.happiness || 0) + 10);
-      familiar.hunger = Math.max(0, (familiar.hunger || 0) - 5);
-      gainXP(5);
-      showNotification(`${familiar.name} is happy! +5 XP`);
-      familiarAnimation(familiarId);
-      break;
-    case 'feed':
-      familiar.hunger = Math.min(100, (familiar.hunger || 0) + 20);
-      familiar.thirst = Math.max(0, (familiar.thirst || 0) - 10);
-      gainXP(2);
-      showNotification(`${familiar.name} is full! +2 XP`);
-      break;
-    case 'water':
-      familiar.thirst = Math.min(100, (familiar.thirst || 0) + 20);
-      gainXP(2);
-      showNotification(`${familiar.name} is hydrated! +2 XP`);
-      break;
-  }
-
-  renderFamiliars();
-  saveGame();
-}
-
-function useItem(itemId) {
-  const item = gameState.inventory.find(i => i.id === itemId);
-  if (!item) return;
-
-  if (item.type === 'egg') {
-    hatchEgg(itemId);
-    return;
-  }
-  
-  if (item.name && item.name.toLowerCase().includes('potion')) {
-    gameState.familiars.forEach(familiar => {
-      familiar.happiness = Math.min(100, (familiar.happiness || 0) + 20);
-    });
-    showNotification('All familiars feel refreshed!');
-  } else if (item.name && item.name.toLowerCase().includes('crystal')) {
-    gainXP(25);
-    showNotification('The crystal grants you wisdom! +25 XP');
-  }
-  
-  item.quantity--;
-  if (item.quantity <= 0) {
-    gameState.inventory = gameState.inventory.filter(i => i.id !== itemId);
-  }
-  
-  renderInventory();
-  renderFamiliars();
-  saveGame();
-}
-
-// Rename support (simple prompt + save)
-function renameFamiliar(id) {
-  const fam = (gameState.familiars || []).find(f => f.id === id);
-  if (!fam) return showNotification('Familiar not found');
-  const name = prompt('Enter a new name for your familiar:', fam.name || '');
-  if (name && name.trim()) {
-    fam.name = name.trim();
-    renderFamiliars();
-    saveGame();
-  }
+function claimDaily() {
+  const today = new Date().toDateString();
+  if (game.lastDaily === today) { notify('Already claimed today!'); return; }
+  game.coins += 50;
+  game.dust += 5;
+  game.lastDaily = today;
+  notify('Daily claimed! +50 coins, +5 dust');
+  updateUI();
+  save();
 }

@@ -13,6 +13,9 @@
   <div class="container">
     <!-- Header -->
     <div class="header">
+      <div class="avatar-box" id="avatarBox" onclick="openAvatarModal()">
+        <span id="avatarDisplay">?</span>
+      </div>
       <h1>📜 Aethelburg</h1>
       <div class="timer" id="serverTime"></div>
       
@@ -20,9 +23,12 @@
         <button id="btn-home" class="nav-btn active" onclick="showSection('home')"><img src="img/assets/house.png" class="nav-icon" alt="Home"> Home</button>
         <button id="btn-familiars" class="nav-btn" onclick="showSection('familiars')"><img src="img/familiars/familiars.png" class="nav-icon" alt="Familiars"> Familiars</button>
         <button id="btn-inventory" class="nav-btn" onclick="showSection('inventory')"><img src="img/assets/crate.png" class="nav-icon" alt="Inventory"> Inventory</button>
+        <button id="btn-crafting" class="nav-btn" onclick="showSection('crafting')"><img src="img/assets/sword.jpg" class="nav-icon" alt="Crafting"> Crafting</button>
         <button id="btn-shop" class="nav-btn" onclick="showSection('shop')"><img src="img/assets/shop.png" class="nav-icon" alt="Shop"> Shop</button>
         <button id="btn-activities" class="nav-btn" onclick="showSection('activities')"><img src="img/assets/target.png" class="nav-icon" alt="Activities"> Activities</button>
-        <button id="btn-battle" class="nav-btn" onclick="showSection('battle')" hidden><img src="img/assets/battle.jpg" class="nav-icon" alt="Battle"> Battle</button>
+        <button id="btn-battle" class="nav-btn" onclick="showSection('battle')"><img src="img/assets/battle.jpg" class="nav-icon" alt="Battle"> Battle</button>
+        <button id="btn-achievements" class="nav-btn" onclick="showSection('achievements')">? Achievements</button>
+        <button id="btn-leaderboard" class="nav-btn" onclick="showSection('leaderboard')">? Leaderboard</button>
       </div>
 
       <div class="status-bar">
@@ -30,55 +36,122 @@
         <div class="status-item"><img src="img/assets/dust.png" class="status-icon" alt="Dust"> Dust: <span id="dustCount">25</span></div>
         <div class="status-item"><img src="img/assets/lvlup.png" class="status-icon" alt="Level"> Level: <span id="playerLevel">1</span></div>
         <div class="status-item">⭐ XP: <span id="playerXP">0</span>/100</div>
+        <div class="status-item"><span id="playerClass">None</span></div>
         <button id="mute-btn" class="nav-btn" onclick="toggleMute()">Mute</button>
-        <button id="clear-save-btn" class="nav-btn" onclick="clearSave()">Clear Save</button>
+        <button id="clear-save-btn" class="nav-btn" onclick="clearSave()">New Game</button>
       </div>
+    </div>
+
+    <div id="eventBanner" class="event-banner hidden">
+      <h3 id="eventTitle"></h3>
+      <p id="eventDesc"></p>
     </div>
 
     <!-- Home Section -->
     <div class="section active" id="home">
-      <h2>🏠 Welcome Home!</h2>
-      <p>Welcome, Keeper, to the realm of Aethelburg! Pledge your allegiance and begin your adventure.</p>
-      
-      <div class="grid">
-        <div class="card">
-          <div class="card-image"><img src="img/assets/coins.png" class="card-icon" alt="Daily Bonus"></div>
-          <h3>Daily Bonus</h3>
-          <p>Claim your daily rewards!</p>
-          <button class="btn" onclick="claimDaily()">Claim Bonus</button>
+      <div id="intro" class="section active">
+        <div style="text-align:center;max-width:800px;margin:0 auto;">
+          <h2>Welcome to Aethelburg!</h2>
+          <p style="margin:20px 0;">Choose your path, Keeper.</p>
+          
+          <h3>Choose Your Class</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:30px 0;">
+            <div class="card" onclick="pickClass('Wizard')">
+              <div style="font-size:3em;">?</div>
+              <h3>Wizard</h3>
+              <p>+50% XP</p>
+            </div>
+            <div class="card" onclick="pickClass('Knight')">
+              <div style="font-size:3em;">⚔️</div>
+              <h3>Knight</h3>
+              <p>+20% HP/DEF</p>
+            </div>
+            <div class="card" onclick="pickClass('Elf')">
+              <div style="font-size:3em;">?</div>
+              <h3>Elf</h3>
+              <p>+15% SPD/ATK</p>
+            </div>
+          </div>
+  
+          <h3>Choose Your Faction</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:30px 0;">
+            <div class="card" onclick="pickFaction('Mages Circle')">
+              <h3>Mage's Circle</h3>
+              <p>+10% crafting</p>
+            </div>
+            <div class="card" onclick="pickFaction('Knights Order')">
+              <h3>Knight's Order</h3>
+              <p>+10% rewards</p>
+            </div>
+            <div class="card" onclick="pickFaction('Rangers Guild')">
+              <h3>Ranger's Guild</h3>
+              <p>Rare spawns</p>
+            </div>
+          </div>
+  
+          <h3>Choose Your Starter</h3>
+          <div id="starterGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:30px 0;"></div>
+  
+          <button class="btn" id="beginBtn" onclick="startGame()" disabled>Begin Adventure!</button>
         </div>
+      </div>
+      <div id="home-content">
+        <h2>? Welcome Home!</h2>
+        <p id="welcomeMsg">Your adventure continues...</p>
+        
+        <div class="grid">
+          <div class="card" onclick="claimDaily()">
+            <div class="card-image"><img src="img/assets/coins.png" class="card-icon" alt="Daily Bonus"></div>
+            <h3>Daily Bonus</h3>
+            <p>Claim your daily rewards!</p>
+            <button class="btn">Claim Bonus</button>
+          </div>
+  
+          <div class="card">
+            <div class="card-image">?</div>
+            <h3>Your Journey</h3>
+            <p id="journeyStats">Loading...</p>
+          </div>
+  
+          <div class="card" onclick="showSection('battle')">
+            <div class="card-image">⚔️</div>
+            <h3>Quick Battle</h3>
+            <button class="btn">Fight!</button>
+          </div>
 
-        <div class="card">
-          <div class="card-image">📰</div>
-          <h3>Latest News</h3>
-          <p>New familiars and items available in the shop!</p>
-        </div>
-
-        <div class="card">
-          <div class="card-image">🏆</div>
-          <h3>Achievements</h3>
-          <p>Track your progress and unlock rewards</p>
+          <div class="card" onclick="showSection('achievements')">
+            <div class="card-image">?</div>
+            <h3>Achievements</h3>
+            <p id="achievementProgress">0/10 unlocked</p>
+            <button class="btn">View</button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Familiars Section -->
     <div class="section" id="familiars">
-      <h2>🐾 Your Familiars</h2>
+      <h2>? Your Familiars</h2>
       <p>Manage and interact with your loyal familiars.</p>
       <div class="grid" id="familiarContainer"></div>
     </div>
 
     <!-- Inventory Section -->
     <div class="section" id="inventory">
-      <h2>📦 Your Inventory</h2>
+      <h2>? Your Inventory</h2>
       <p>Items and treasures you've collected on your journey.</p>
       <div class="grid" id="inventoryContainer"></div>
     </div>
 
+    <!-- Crafting Section -->
+    <div class="section" id="crafting">
+      <h2>Crafting</h2>
+      <div class="grid" id="craftingGrid"></div>
+    </div>
+
     <!-- Shop Section -->
     <div class="section" id="shop">
-      <h2>🛒 Mystical Shop</h2>
+      <h2>? Mystical Shop</h2>
       <p>Purchase items and familiars to enhance your adventure!</p>
       <div class="grid" id="shopContainer"></div>
     </div>
@@ -90,7 +163,7 @@
       <div class="activity-section">
         
         <div class="activity-card">
-          <h3>🌿 Foraging</h3>
+          <h3>? Foraging</h3>
           <p>Search for herbs and magical items in the forest.</p>
           <div class="progress-bar">
             <div class="progress-fill" id="foragingProgress" style="width: 0%"></div>
@@ -108,7 +181,7 @@
         </div>
 
         <div class="activity-card">
-          <h3>🎣 Fishing</h3>
+          <h3>? Fishing</h3>
           <p>Cast your line and catch magical fish.</p>
           <div class="progress-bar">
             <div class="progress-fill" id="fishingProgress" style="width: 0%"></div>
@@ -117,7 +190,7 @@
         </div>
 
         <div class="activity-card">
-          <h3>🐾 Catch Familiar</h3>
+          <h3>? Catch Familiar</h3>
           <p>Try to catch a new companion!</p>
           <div class="progress-bar">
             <div class="progress-fill" id="catchingProgress" style="width: 0%"></div>
@@ -140,22 +213,41 @@
     <!-- Battle Section -->
     <div class="section" id="battle">
       <h2>⚔️ Battle! ⚔️</h2>
-      <div class="battle-arena">
-        <div class="battle-familiar" id="player-familiar" style="position: relative;">
-          <!-- Player's familiar will be rendered here -->
+      <div id="familiarSelect">
+        <h3>Select Champion</h3>
+        <div class="grid" id="battleSelectGrid"></div>
+      </div>
+      <div id="battleScreen" style="display:none;">
+        <div class="battle-arena">
+          <div class="battle-familiar" id="player-familiar" style="position: relative;">
+            <!-- Player's familiar will be rendered here -->
+          </div>
+          <div class="battle-familiar" id="opponent-familiar" style="position: relative;">
+            <!-- Opponent's familiar will be rendered here -->
+          </div>
         </div>
-        <div class="battle-familiar" id="opponent-familiar" style="position: relative;">
-          <!-- Opponent's familiar will be rendered here -->
+        <div class="battle-log" id="battle-log">
+          <!-- Battle log messages will be rendered here -->
+        </div>
+        <div class="battle-actions" id="battle-actions">
+          <button class="btn" onclick="doAttack()">Attack</button>
+          <button class="btn" onclick="doDefend()">Defend</button>
+          <button class="btn" onclick="doRetreat()">Run</button>
         </div>
       </div>
-      <div class="battle-log" id="battle-log">
-        <!-- Battle log messages will be rendered here -->
-      </div>
-      <div class="battle-actions" id="battle-actions">
-        <button class="btn" onclick="battleAction('attack')">Attack</button>
-        <button class="btn" onclick="battleAction('defend')">Defend</button>
-        <button class="btn" onclick="battleAction('run')">Run</button>
-      </div>
+    </div>
+
+    <!-- Achievements Section -->
+    <div class="section" id="achievements">
+      <h2>Achievements</h2>
+      <div id="achievementGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:15px;margin-top:20px;"></div>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div class="section" id="leaderboard">
+      <h2>Leaderboard</h2>
+      <p style="margin-bottom:20px;">Top Keepers of Aethelburg</p>
+      <div id="leaderboardList"></div>
     </div>
   </div>
 
@@ -165,6 +257,45 @@
   <!-- Hatching Animation -->
   <div id="hatching-overlay" class="hidden">
     <div class="egg"></div>
+  </div>
+
+  <div class="loot-popup hidden" id="lootPopup">
+    <h2>Victory!</h2>
+    <div id="lootList"></div>
+    <button class="btn" onclick="closeLoot()">Continue</button>
+  </div>
+
+  <div class="modal hidden" id="avatarModal">
+    <h2>Choose Avatar</h2>
+    <input type="text" id="avatarURL" placeholder="Image URL" style="width:100%;padding:10px;margin:15px 0;background:rgba(0,0,0,0.3);color:#f0e6d2;border:2px solid #ffd700;">
+    <div style="display:flex;gap:10px;margin:15px 0;">
+      <button class="btn" onclick="saveAvatarURL()">Save</button>
+      <button class="btn" onclick="closeAvatarModal()">Cancel</button>
+    </div>
+    <p>Or pick emoji:</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+      <button class="btn" onclick="saveAvatarEmoji('?')">?</button>
+      <button class="btn" onclick="saveAvatarEmoji('⚔️')">⚔️</button>
+      <button class="btn" onclick="saveAvatarEmoji('?')">?</button>
+      <button class="btn" onclick="saveAvatarEmoji('?')">?</button>
+      <button class="btn" onclick="saveAvatarEmoji('?')">?</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="renameModal">
+    <h2>Rename Familiar</h2>
+    <input type="text" id="renameInput" placeholder="New name" style="width:100%;padding:10px;margin:15px 0;background:rgba(0,0,0,0.3);color:#f0e6d2;border:2px solid #ffd700;" maxlength="20">
+    <div style="display:flex;gap:10px;">
+      <button class="btn" onclick="saveRename()">Save</button>
+      <button class="btn" onclick="closeRenameModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="evolutionModal">
+    <h2>Evolution!</h2>
+    <p id="evolutionText"></p>
+    <div id="evolutionDisplay" style="margin:20px 0;"></div>
+    <button class="btn" onclick="closeEvolutionModal()">Amazing!</button>
   </div>
 
   <!-- Background music (loop) -->

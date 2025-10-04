@@ -1,66 +1,49 @@
 // main.js
 // Initialize Game
 function init() {
-  document.body.className = 'home'; // Set initial background
-  loadSounds();
-  loadGame();
+  load();
+  if (game.init) {
+    document.getElementById('intro').style.display = 'none';
+    document.getElementById('home-content').style.display = 'block';
+    updateAvatar();
+    showSection('home');
+    renderAllSections();
+    setInterval(triggerRandomEvent, 120000);
+  } else {
+    document.getElementById('intro').style.display = 'block';
+    document.getElementById('home-content').style.display = 'none';
+    renderStarters();
+  }
   updateUI();
   updateServerTime();
   setInterval(updateServerTime, 1000);
-  renderAllSections();
   initMusic();
 }
 
 // Save/Load Game
-function saveGame() {
+function save() {
   try {
-    localStorage.setItem("familiarGameSave", JSON.stringify(gameState));
-  } catch (e) {
+    localStorage.setItem('fabledFamiliars', JSON.stringify(game));
+  } catch(e) {
     console.warn('Save failed', e);
   }
 }
 
-function loadGame() {
-  let saved = localStorage.getItem("familiarGameSave");
-  let isNewSave = true;
-
-  if (!saved) {
-    saved = localStorage.getItem("petGameSave");
-    isNewSave = false;
-  }
-
+function load() {
+  const saved = localStorage.getItem('fabledFamiliars');
   if (saved) {
     try {
-      let savedGameState = JSON.parse(saved);
-
-      // One-time migration from old save
-      if (!isNewSave) {
-        if (savedGameState.pets) {
-          savedGameState.familiars = savedGameState.pets;
-          delete savedGameState.pets;
-        }
-        if (savedGameState.activities && savedGameState.activities.catching) {
-          savedGameState.activities.enchanting = savedGameState.activities.catching;
-          delete savedGameState.activities.catching;
-        }
-      }
-
-      // Don't load familiars from save, to force using the ones from data.js
-      delete savedGameState.familiars;
-
-      // Ensure activities keys exist
-      const requiredActivities = ['foraging','mining','fishing','catching','enchanting'];
-      if (!savedGameState.activities) savedGameState.activities = {};
-      requiredActivities.forEach(a => {
-        if (!Object.prototype.hasOwnProperty.call(savedGameState.activities, a)) {
-          savedGameState.activities[a] = { active: false, progress: 0 };
-        }
-      });
-
-      gameState = { ...gameState, ...savedGameState };
-    } catch (e) {
-      console.warn('Failed to parse save data', e);
+      Object.assign(game, JSON.parse(saved));
+    } catch(e) {
+      console.warn('Load failed', e);
     }
+  }
+}
+
+function clearSave() {
+  if (confirm('Delete all progress?')) {
+    localStorage.removeItem('fabledFamiliars');
+    location.reload();
   }
 }
 
@@ -92,12 +75,6 @@ function toggleMute() {
   if (btn) btn.textContent = musicMuted ? 'Unmute' : 'Mute';
 }
 
-function clearSave() {
-  localStorage.removeItem("familiarGameSave");
-  localStorage.removeItem("petGameSave");
-  location.reload();
-}
-
 // Try to resume audio context on user gesture (for WebAudio)
 document.addEventListener('pointerdown', () => {
   if (typeof AudioContext !== 'undefined' && window._audioCtx && window._audioCtx.state === 'suspended') {
@@ -105,4 +82,4 @@ document.addEventListener('pointerdown', () => {
   }
 }, { once: true });
 
-init();
+document.addEventListener('DOMContentLoaded', init);

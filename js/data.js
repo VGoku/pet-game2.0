@@ -41,32 +41,75 @@ const enemyImages = {
 };
 
 // Game State
-let gameState = {
-  player: {
-    class: 'Knight'
-  },
-  coins: 150,
-  dust: 25,
+let game = {
+  init: false,
+  player: { class: null, faction: null, avatar: '👤', name: 'Keeper' },
+  coins: 0,
+  dust: 0,
   level: 1,
   xp: 0,
+  wins: 0,
+  familiars: [],
+  inventory: {},
   lastDaily: null,
-  familiars: [
-    // Example familiars (images are placeholders; drop your images into assets/familiars and update paths)
-  { id: 1, name: "Grumblenook", species: "grumblenook", color: "moss-green", marking: "none", level: 2, xp: 0, image: "img/familiars/cute-deserrt-thing.jpg", hunger: 95, thirst: 90, happiness: 92, hp: 60, attack: 12, defense: 6, speed: 25 },
-  { id: 2, name: "Silver Dragon", species: "dragon", color: "silver", marking: "runic", level: 8, xp: 0, image: "img/familiars/dragon.png", hunger: 70, thirst: 60, happiness: 80, hp: 120, attack: 25, defense: 15, speed: 10 },
-  { id: 3, name: "Thistle", species: "hippogriff", color: "brown", marking: "striped", level: 6, xp: 0, image: "img/familiars/griffin.jpg", hunger: 80, thirst: 70, happiness: 85, hp: 110, attack: 22, defense: 14, speed: 13 }
-  ],
-  inventory: [
-  { id: 101, name: "Health Potion", image: IMG_PATHS.healthPot, quantity: 3, type: 'consumable', description: 'Restores familiar happiness and slightly heals.' },
-  { id: 102, name: "Magic Crystal", image: IMG_PATHS.crystal, quantity: 1, type: 'consumable', description: 'Grants bonus XP when used.' }
-  ],
-  activities: {
-    foraging: { active: false, progress: 0 },
-    mining: { active: false, progress: 0 },
-    fishing: { active: false, progress: 0 },
-    catching: { active: false, progress: 0 }
-  }
+  achievements: [],
+  highestFamiliarLevel: 0,
+  totalMaterialsCollected: 0
 };
+
+let sel = { class: null, faction: null, starter: null };
+let battle = { player: null, enemy: null, turn: 'player' };
+let renameTarget = null;
+let currentEvent = null;
+
+const personalities = ['Brave', 'Lazy', 'Hungry', 'Playful', 'Serious', 'Shy', 'Bold'];
+
+const starters = [
+  { species: 'grumblenook', name: 'Grumblenook', hp: 60, attack: 12, defense: 6, speed: 25, image: 'img/familiars/cute-deserrt-thing.jpg', evolves: true, evolvesAt: 10, evolvesInto: 'Greater Grumblenook' },
+  { species: 'dragon', name: 'Silver Dragon', hp: 120, attack: 25, defense: 15, speed: 10, image: 'img/familiars/dragon.png', evolves: true, evolvesAt: 15, evolvesInto: 'Ancient Dragon' },
+  { species: 'hippogriff', name: 'Hippogriff', hp: 110, attack: 22, defense: 14, speed: 13, image: 'img/familiars/griffin.jpg', evolves: true, evolvesAt: 12, evolvesInto: 'Royal Hippogriff' }
+];
+
+const enemies = [
+  { name: 'Goblin', hp: 50, attack: 10, defense: 5, level: 3, image: 'img/enemies/goblin.png' },
+  { name: 'Slime', hp: 40, attack: 8, defense: 8, level: 2, image: 'img/enemies/slime.png' },
+  { name: 'Orc Warrior', hp: 90, attack: 18, defense: 12, level: 6, image: 'img/enemies/orc.png' },
+  { name: 'Shadow Beast', hp: 120, attack: 22, defense: 15, level: 8, image: 'img/enemies/black-cat.jpg' }
+];
+
+const loot = [
+  {item: 'Iron Ore', chance: 0.6, qty: [1,3]},
+  {item: 'Magic Dust', chance: 0.5, qty: [1,2]},
+  {item: 'Leather', chance: 0.5, qty: [1,2]},
+  {item: 'Rare Gem', chance: 0.15, qty: [1,1]}
+];
+
+const recipes = [
+  { id: 'armor', name: 'Basic Armor', mats: {'Iron Ore':3, 'Leather':2}, bonus: {stat:'defense', val:5} },
+  { id: 'weapon', name: 'Basic Weapon', mats: {'Iron Ore':2}, bonus: {stat:'attack', val:5} },
+  { id: 'advanced_armor', name: 'Steel Armor', mats: {'Iron Ore':5, 'Rare Gem':1}, bonus: {stat:'defense', val:10} },
+  { id: 'summon', name: 'Summon Familiar', mats: {'Magic Dust':5, 'Rare Gem':2}, type: 'familiar' }
+];
+
+const achievements = [
+  {id: 'first_win', name: 'First Victory', desc: 'Win your first battle', check: () => game.wins >= 1, icon: '⚔️'},
+  {id: 'five_wins', name: 'Warrior', desc: 'Win 5 battles', check: () => game.wins >= 5, icon: '🗡️'},
+  {id: 'ten_wins', name: 'Champion', desc: 'Win 10 battles', check: () => game.wins >= 10, icon: '🏆'},
+  {id: 'first_craft', name: 'Craftsman', desc: 'Craft your first item', check: () => Object.keys(game.inventory).length >= 3, icon: '⚒️'},
+  {id: 'three_familiars', name: 'Growing Team', desc: 'Own 3 familiars', check: () => game.familiars.length >= 3, icon: '👥'},
+  {id: 'level_5', name: 'Experienced', desc: 'Reach level 5', check: () => game.level >= 5, icon: '⭐'},
+  {id: 'level_10', name: 'Master Keeper', desc: 'Reach level 10', check: () => game.level >= 10, icon: '🌟'},
+  {id: 'evolution', name: 'Evolutionist', desc: 'Evolve a familiar', check: () => game.familiars.some(f => f.evolved), icon: '✨'},
+  {id: 'collector', name: 'Material Hoarder', desc: 'Collect 100 materials', check: () => game.totalMaterialsCollected >= 100, icon: '📦'},
+  {id: 'rich', name: 'Wealthy', desc: 'Have 500 coins', check: () => game.coins >= 500, icon: '💰'}
+];
+
+const events = [
+  {name: 'Lucky Hour', desc: '2x drop rates for 5 minutes!', duration: 300000, effect: 'double_drops'},
+  {name: 'Rare Spawn', desc: 'Legendary enemies appearing!', duration: 600000, effect: 'rare_enemies'},
+  {name: 'Merchant Visit', desc: '50% off all shop items!', duration: 300000, effect: 'shop_sale'}
+];
+
 
 // Shop items: prefer `image` paths over emoji. Drop images into assets/shop
 const shopItems = [
@@ -84,7 +127,7 @@ const shopItems = [
 window.familiarImages = familiarImages;
 window.enemyImages = enemyImages;
 window.IMG_PATHS = IMG_PATHS;
-window.gameState = gameState;  // Make sure gameState is available to other modules
+window.gameState = game;  // Make sure gameState is available to other modules
 
 // Hatchable familiars (used by eggs/mystery boxes)
 const hatchableFamiliars = [

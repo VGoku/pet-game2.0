@@ -1,220 +1,157 @@
-// battle.js
-let battleState = {
-  playerFamiliar: null,
-  opponentFamiliar: null,
-  turn: 'player',
-  log: [],
-  timeoutId: null
-};
-
-function startBattle(familiarId) {
-  const playerFamiliar = gameState.familiars.find(f => f.id === familiarId);
-  if (!playerFamiliar) {
-    showNotification('Selected familiar not found for battle.');
-    return;
+function startBattle(id) {
+  const player = game.familiars.find(f => f.id === id);
+  if (!player) return;
+  
+  let enemyPool = enemies;
+  if (currentEvent && currentEvent.effect === 'rare_enemies') {
+    enemyPool = enemies.filter(e => e.level >= 6);
   }
-  const opponentFamiliar = opponents[Math.floor(Math.random() * opponents.length)];
-
-  battleState.playerFamiliar = { ...playerFamiliar, currentHp: Number(playerFamiliar.hp) || 50, id: playerFamiliar.id };
-  battleState.opponentFamiliar = { ...opponentFamiliar, currentHp: Number(opponentFamiliar.hp) || 50 };
-  battleState.log = [];
-
-  showSection('battle');
+  
+  const enemy = {...enemyPool[Math.floor(Math.random() * enemyPool.length)]};
+  enemy.currentHp = enemy.hp;
+  
+  battle = { player: {...player}, enemy: enemy, turn: 'player' };
+  
+  document.getElementById('familiarSelect').style.display = 'none';
+  document.getElementById('battleScreen').style.display = 'block';
+  document.getElementById('battle-log').innerHTML = '';
+  
   renderBattle();
-  logBattle(`A wild ${opponentFamiliar.name} appeared!`);
-  // ensure actions visible
-  const battleActionsEl = document.getElementById('battle-actions');
-  if (battleActionsEl) battleActionsEl.style.display = 'flex';
+  logBattle('A wild ' + enemy.name + ' appeared!');
 }
 
-function renderBattle() {
-  const playerFamiliarEl = document.getElementById('player-familiar');
-  const opponentFamiliarEl = document.getElementById('opponent-familiar');
-
-  const player = battleState.playerFamiliar || {};
-  const opponent = battleState.opponentFamiliar || {};
-
-  const playerImg = getImageSrc(player);
-  const opponentImg = getImageSrc(opponent);
-
-  const playerHp = Number(player.hp) || 1;
-  const opponentHp = Number(opponent.hp) || 1;
-  const playerCurrent = Number(player.currentHp) || 0;
-  const opponentCurrent = Number(opponent.currentHp) || 0;
-
-  const playerHealthPercent = Math.max(0, Math.min(100, (playerCurrent / playerHp) * 100));
-  const opponentHealthPercent = Math.max(0, Math.min(100, (opponentCurrent / opponentHp) * 100));
-
-  if (playerFamiliarEl) {
-    playerFamiliarEl.innerHTML = `
-      <h3>${player.name || 'Unknown'}</h3>
-  <img src="${playerImg}" onerror="this.onerror=null;this.src='img/familiars/familiars.png'">
-      <p>HP: ${playerCurrent} / ${playerHp}</p>
-      <div class="health-bar"><div class="health-bar-fill" style="width: ${playerHealthPercent}%;"></div></div>
-    `;
-  }
-
-  if (opponentFamiliarEl) {
-    opponentFamiliarEl.innerHTML = `
-      <h3>${opponent.name || 'Unknown'}</h3>
-  <img src="${opponentImg}" alt="${opponent.name || 'opponent'}" onerror="this.onerror=null;this.src='img/familiars/familiars.png'">
-      <p>HP: ${opponentCurrent} / ${opponentHp}</p>
-      <div class="health-bar"><div class="health-bar-fill" style="width: ${opponentHealthPercent}%;"></div></div>
-    `;
-  }
-}
-
-function logBattle(message) {
-  const battleLogEl = document.getElementById('battle-log');
-  if (!battleLogEl) return;
-  const ts = new Date().toLocaleTimeString();
-  const entry = `[${ts}] ${message}`;
-  const p = document.createElement('div');
-  p.textContent = entry;
-  battleLogEl.appendChild(p);
-  battleLogEl.scrollTop = battleLogEl.scrollHeight;
-}
-
-function battleAction(action) {
-  if (battleState.turn === 'player') {
-    playerTurn(action);
-  }
-}
-
-function playerTurn(action) {
-  const player = battleState.playerFamiliar;
-  const opponent = battleState.opponentFamiliar;
-
-  if (!player) {
-    console.error("Error: 'player' is null. Cannot act.");
-    return;
-  }
-
-  player.isDefending = false;
-
-  switch (action) {
-    case 'attack':
-      playSound('sounds/attack.ogg');
-      const damage = calculateDamage(player, opponent);
-      opponent.currentHp = Math.max(0, opponent.currentHp - damage);
-      logBattle(`${player.name} attacks ${opponent.name} for ${damage} damage!`);
-      // visual hit + slash effect on opponent element
-      const oppEl = document.getElementById('opponent-familiar');
-      if (oppEl) {
-        oppEl.classList.add('hit', 'shake');
-  showSlash(oppEl);
-        setTimeout(() => oppEl.classList.remove('hit', 'shake'), 500);
-      }
-      break;
-    case 'defend':
-      playSound('sounds/defend.wav');
-      player.isDefending = true;
-      logBattle(`${player.name} is defending!`);
-      break;
-    case 'run':
-      logBattle(`You fled from the battle!`);
-      endBattle('run');
-      return;
-  }
-
+function doAttack() {
+  if (battle.turn !== 'player') return;
+  
+  const p = battle.player;
+  const e = battle.enemy;
+  
+  let dmg = Math.max(1, p.attack - e.defense);
+  if (p.personality === 'Brave') dmg = Math.floor(dmg * 1.1);
+  
+  e.currentHp -= dmg;
+  logBattle(p.name + ' attacks for ' + dmg + ' damage!');
+  
+  const el = document.getElementById('opponent-familiar');
+  el.classList.add('hit', 'shake');
+  setTimeout(() => el.classList.remove('hit', 'shake'), 500);
+  
   renderBattle();
-  battleState.turn = 'opponent';
-  battleState.timeoutId = setTimeout(opponentTurn, 900);
-  checkWinner();
+  
+  if (e.currentHp <= 0) { endBattle('win'); return; }
+  
+  battle.turn = 'enemy';
+  setTimeout(enemyTurn, 1000);
 }
 
-function opponentTurn() {
-  const player = battleState.playerFamiliar;
-  const opponent = battleState.opponentFamiliar;
+function doDefend() {
+  if (battle.turn !== 'player') return;
+  battle.player.defending = true;
+  logBattle(battle.player.name + ' defends!');
+  battle.turn = 'enemy';
+  setTimeout(enemyTurn, 1000);
+}
 
-  if (!player || !opponent) {
-    console.error("Player or opponent familiar is null. Cannot proceed with the turn.");
-    return;
+function doRetreat() {
+  endBattle('retreat');
+}
+
+function enemyTurn() {
+  const p = battle.player;
+  const e = battle.enemy;
+  
+  let dmg = Math.max(1, e.attack - p.defense);
+  if (p.defending) {
+    dmg = Math.max(1, Math.floor(dmg * 0.5));
+    p.defending = false;
   }
-
-  playSound('sounds/attack.ogg');
-  const damage = calculateDamage(opponent, player);
-  player.currentHp = Math.max(0, player.currentHp - damage);
-  logBattle(`${opponent.name} attacks ${player.name} for ${damage} damage!`);
-  const playerEl = document.getElementById('player-familiar');
-  if (playerEl) {
-    playerEl.classList.add('hit', 'shake');
-  showSlash(playerEl);
-    setTimeout(() => playerEl.classList.remove('hit', 'shake'), 500);
-  }
-
+  
+  p.currentHp -= dmg;
+  logBattle(e.name + ' attacks for ' + dmg + ' damage!');
+  
+  const el = document.getElementById('player-familiar');
+  el.classList.add('hit', 'shake');
+  setTimeout(() => el.classList.remove('hit', 'shake'), 500);
+  
   renderBattle();
-  battleState.turn = 'player';
-  checkWinner();
-}
-
-function calculateDamage(attacker, defender) {
-  const atk = Number(attacker?.attack) || 0;
-  let def = Number(defender?.defense) || 0;
-  if (defender && defender.isDefending) {
-    def *= 1.5;
-  }
-  const raw = atk - def;
-  const damage = Math.max(1, Math.round(raw || 1));
-  return damage;
-}
-
-function checkWinner() {
-  const player = battleState.playerFamiliar;
-  const opponent = battleState.opponentFamiliar;
-
-  if (!player || !opponent) return;
-
-  if (player.currentHp <= 0) {
-    endBattle('lose');
-  } else if (opponent.currentHp <= 0) {
-    endBattle('win');
-  }
+  
+  if (p.currentHp <= 0) { endBattle('lose'); return; }
+  
+  battle.turn = 'player';
 }
 
 function endBattle(result) {
-  if (battleState.timeoutId) {
-    clearTimeout(battleState.timeoutId);
-  }
-
-  const battleActionsEl = document.getElementById('battle-actions');
-  if (battleActionsEl) battleActionsEl.style.display = 'none';
-
   if (result === 'win') {
-    playSound('sounds/win.wav');
-    logBattle(`You defeated ${battleState.opponentFamiliar.name}!`);
-    const xpGained = (battleState.opponentFamiliar.level || 1) * 5;
-    gainXP(xpGained);
+    logBattle('Victory!');
     
-    const familiar = gameState.familiars.find(f => f.id === battleState.playerFamiliar.id);
-    if (familiar) {
-      familiar.xp = (familiar.xp || 0) + xpGained;
-      levelUpFamiliar(familiar);
+    game.wins++;
+    const xp = battle.enemy.level * 5;
+    if (game.player.class === 'Wizard') {
+      gainXP(Math.floor(xp * 1.5));
+    } else {
+      gainXP(xp);
     }
-
-    showNotification(`You and your familiar gained ${xpGained} XP!`);
-    celebrate();
+    
+    const fam = game.familiars.find(f => f.id === battle.player.id);
+    if (fam) {
+      fam.currentHp = Math.max(1, battle.player.currentHp);
+      fam.xp += xp;
+      if (fam.xp >= 100) {
+        fam.level++;
+        fam.xp -= 100;
+        fam.maxHp += 10;
+        fam.currentHp = fam.maxHp;
+        fam.attack += 2;
+        fam.defense += 2;
+        notify(fam.name + ' leveled up!');
+        
+        if (fam.level > game.highestFamiliarLevel) {
+          game.highestFamiliarLevel = fam.level;
+        }
+        
+        checkEvolution(fam);
+      }
+    }
+    
+    generateLoot();
+    checkAchievements();
+    
   } else if (result === 'lose') {
-    playSound('sounds/lose.wav');
-    logBattle(`You were defeated by ${battleState.opponentFamiliar.name}...`);
-    showNotification(`You lost the battle...`);
-  } else if (result === 'run') {
-    showNotification('You escaped the battle.');
+    logBattle('Defeat...');
+    const fam = game.familiars.find(f => f.id === battle.player.id);
+    if (fam) fam.currentHp = 0;
+    notify('Your familiar fainted!');
+  } else if (result === 'retreat') {
+    logBattle('You fled...');
+    notify('You fled the battle');
   }
-
-  // reset state
-  battleState = {
-    playerFamiliar: null,
-    opponentFamiliar: null,
-    turn: 'player',
-    log: [],
-    timeoutId: null
-  };
-
+  
+  save();
+  updateUI();
+  
   setTimeout(() => {
-    showSection('familiars');
-    // refresh UI and re-show actions
-    try { renderAllSections(); updateUI(); } catch (e) {}
-    if (battleActionsEl) battleActionsEl.style.display = 'flex';
-  }, 1400);
+    document.getElementById('battleScreen').style.display = 'none';
+    document.getElementById('familiarSelect').style.display = 'block';
+    renderBattleSelect();
+  }, 2000);
+}
+
+function generateLoot() {
+  const drops = [];
+  loot.forEach(entry => {
+    let chance = entry.chance;
+    if (currentEvent && currentEvent.effect === 'double_drops') chance *= 2;
+    
+    if (Math.random() < chance) {
+      const qty = entry.qty[0] + Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1));
+      addMaterial(entry.item, qty);
+      drops.push({item: entry.item, qty: qty});
+    }
+  });
+  
+  const coins = 10 + Math.floor(Math.random() * 20);
+  game.coins += coins;
+  drops.push({item: 'Coins', qty: coins});
+  
+  showLootPopup(drops);
 }

@@ -68,7 +68,28 @@ h1, h2, h3 {
   margin-bottom: 20px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
   text-align: center;
+  position: relative;
 }
+
+.avatar-box {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  width: 80px;
+  height: 80px;
+  border: 3px solid #ffd700;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(0,0,0,0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2em;
+}
+
+.avatar-box:hover { box-shadow: 0 0 20px #ffd700; }
+.avatar-box img { width: 100%; height: 100%; object-fit: cover; }
 
 .nav {
   display: flex;
@@ -275,8 +296,103 @@ h1, h2, h3 {
 .egg.wobble { animation: wobble 600ms ease-in-out infinite; }
 .egg.crack { /* visual crack via pseudo or removed for brevity */ }
 
+.personality-tag {
+  display: inline-block;
+  background: rgba(155,89,182,0.3);
+  border: 1px solid #9b59b6;
+  padding: 2px 8px;
+  margin: 2px;
+  border-radius: 3px;
+  font-size: 0.75em;
+}
+
+.achievement-badge {
+  background: rgba(0,0,0,0.5);
+  border: 2px solid #ffd700;
+  padding: 15px;
+  margin: 10px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+.achievement-badge.unlocked {
+  border-color: #2ecc71;
+  background: rgba(46,204,113,0.2);
+}
+
+.event-banner {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  border: 3px solid #ffd700;
+  padding: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 10px #e74c3c; }
+  50% { box-shadow: 0 0 25px #e74c3c; }
+}
+
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(42,14,58,0.98);
+  color: #ffd700;
+  padding: 15px 25px;
+  border: 2px solid #ffd700;
+  opacity: 0;
+  transition: 0.3s;
+  z-index: 10000;
+  max-width: 300px;
+}
+
+.notification.show { opacity: 1; }
+.hidden { display: none !important; }
+
+.loot-popup, .modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(42,14,58,0.98);
+  border: 3px solid #ffd700;
+  padding: 30px;
+  border-radius: 10px;
+  z-index: 9999;
+  text-align: center;
+  min-width: 300px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.loot-item {
+  background: rgba(0,0,0,0.3);
+  padding: 10px;
+  margin: 5px 0;
+  border: 1px solid #ffd700;
+}
+
+.selected { border-color: #fff !important; box-shadow: 0 0 30px #fff !important; }
+
+.leaderboard-entry {
+  background: rgba(0,0,0,0.3);
+  padding: 10px;
+  margin: 5px 0;
+  border-left: 3px solid #ffd700;
+  display: flex;
+  justify-content: space-between;
+}
+
+.leaderboard-entry.you {
+  border-left-color: #2ecc71;
+  background: rgba(46,204,113,0.2);
+}
+
 @media (max-width: 768px) {
   .container { padding: 10px; }
   .grid { grid-template-columns: 1fr; gap: 15px; }
   .status-bar { flex-direction: column; gap: 10px; }
+  .avatar-box { position: relative; left: auto; top: auto; margin: 0 auto 15px; }
 }
