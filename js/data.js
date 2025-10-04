@@ -12,7 +12,7 @@ const IMG_PATHS = {
   shop: "img/assets/shop.jpg",
   battle: "img/assets/battle.jpg",  // Used as enemy default
   crate: "img/assets/crate.png",    // Used for mystery box
-  redClaws: "img/assets/red claws.png"  // Used for battle slash effect
+  redClaws: "img/assets/red-claws.png"  // Used for battle slash effect
 };
 
 // Image mappings for familiars and enemies - defined first since they're used in gameState

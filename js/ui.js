@@ -196,10 +196,23 @@ function showSlash(targetEl, imagePath = IMG_PATHS.redClaws) {
   img.src = imagePath;
   img.className = 'slash-effect';
   img.style.position = 'absolute';
-  img.style.left = '10%';
-  img.style.top = '5%';
-  img.style.width = '220px';
+  img.style.top = '50%';
+  img.style.left = '50%';
+  img.style.transform = 'translate(-50%, -50%) scale(1)';
+  img.style.width = '180px';
   img.style.pointerEvents = 'none';
+  img.style.opacity = '0.9';
+  img.style.zIndex = '9999';
+  
+  targetEl.style.position = 'relative'; // ensure container is positioned
   targetEl.appendChild(img);
-  setTimeout(() => img.remove(), 420);
+
+  // Animate fade/shrink
+  setTimeout(() => {
+    img.style.transition = 'all 0.4s ease-out';
+    img.style.opacity = '0';
+    img.style.transform = 'translate(-50%, -50%) scale(0.5)';
+  }, 50);
+
+  setTimeout(() => img.remove(), 500);
 }

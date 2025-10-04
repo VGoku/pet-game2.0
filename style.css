@@ -41,7 +41,7 @@ body {
 
 /* Section Specific Backgrounds */
 body.home { background-image: url('img/assets/home.jpg'); }
-body.familiars { background-image: url('img/familiars/familiars.png'); }
+body.familiars { background-image: url('img/assets/pets.jpg'); }
 body.inventory { background-image: url('img/assets/inventory.jpg'); }
 body.shop { background-image: url('img/assets/shop.jpg'); }
 body.activities { background-image: url('img/assets/activities.jpg'); }
@@ -255,10 +255,9 @@ h1, h2, h3 {
 /* Slash effect */
 .slash-effect {
   pointer-events: none;
-  opacity: 1;
-  transform-origin: center;
-  animation: slash 0.35s ease-out forwards;
+  user-select: none;
 }
+
 @keyframes slash {
   from { opacity: 1; transform: scale(1) rotate(-15deg); }
   to { opacity: 0; transform: scale(1.6) rotate(20deg); }
